@@ -1,12 +1,10 @@
 # Énigme du jour
 
-Une mini-appli d’apprentissage : chaque jour, une énigme courte, écrite sur un ton d’ami, à partir d’un article Wikipédia. Tu devines le terme caché, tu gagnes des points, tu découvres la source.
-
-> Prototype conçu pour le hackathon ABIFA 2026 (Agori, 20-22 novembre 2026). Développé avec l’aide d’un assistant IA (Claude).
+Une mini-appli d’apprentissage : chaque jour, une énigme courte à partir d’un article Wikipédia. Tu devines le terme caché, tu gagnes des points, tu découvres la source.
 
 ## Fonctionnement
 
-1. Le serveur choisit un sujet dans un domaine (statistiques et data, économie, informatique et IA) et récupère l’extrait de la page Wikipédia française.
+1. Le serveur choisit un sujet dans un domaine (statistiques et data, économie, informatique et IA , histoire , etc...) et récupère l’extrait de la page web française.
 2. Le modèle DeepSeek reçoit **uniquement** cet extrait et rédige une énigme au format JSON.
 3. Garde-fou anti-invention : si le terme caché ne figure pas dans l’extrait, l’énigme est rejetée.
 4. La réponse reste côté serveur jusqu’à ce que l’utilisateur réponde. Barème : 10 points, 5 avec l’indice.
@@ -21,8 +19,8 @@ Une mini-appli d’apprentissage : chaque jour, une énigme courte, écrite sur 
 ## Installation
 
 ```bash
-git clone https://github.com/<ton-utilisateur>/enigme-du-jour.git
-cd enigme-du-jour
+git clone https://github.com/sherifbiaou/app_enigme.git
+cd app_enigme
 python -m venv .venv
 source .venv/bin/activate        # Windows : .venv\Scripts\activate
 pip install -r requirements.txt
@@ -56,7 +54,6 @@ Ouvre ensuite http://127.0.0.1:8000.
 ## Limites connues
 
 - Les réponses sont validées par correspondance de texte (variantes fournies par le modèle), pas par compréhension.
-- Les énigmes générées ne sont pas relues par un humain : vérifie-les avant une démonstration.
 - Les points et la série sont stockés dans le navigateur (`localStorage`).
 
 ## Feuille de route
