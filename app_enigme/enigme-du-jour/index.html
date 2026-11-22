@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Énigme du jour</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;600;800&display=swap">
+<style>
+:root{--fond:#eaf0ee;--encre:#10231e;--carte:#fbfdfc;--accent:#f2a900;--ok:#1b7a50;--ko:#b3392b;--trait:#c9d6d1;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--fond:#0f1a17;--encre:#e6efeb;--carte:#17261f;--trait:#2c4037;--ok:#5fd39b;--ko:#ff8b7b;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--fond);color:var(--encre);font:400 1.05rem/1.55 "Bricolage Grotesque",system-ui,sans-serif;padding:1.25rem 1rem 3rem}
+main{max-width:34rem;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1.25rem}
+h1{font-size:1.6rem;font-weight:800;margin:0;letter-spacing:-.02em}
+.score{background:var(--accent);color:#10231e;font-weight:600;border-radius:999px;padding:.3rem .9rem;white-space:nowrap}
+select,input,button{font:inherit;color:inherit}
+select{width:100%;background:var(--carte);border:1px solid var(--trait);border-radius:.6rem;padding:.55rem .7rem;margin-bottom:1rem}
+.bulle{background:var(--carte);border:1px solid var(--trait);border-radius:1.2rem 1.2rem 1.2rem .3rem;padding:1.1rem 1.25rem}
+.bulle p{margin:0 0 .7rem}.bulle p:last-child{margin:0}
+.trou{display:inline-block;background:var(--encre);color:var(--carte);font:600 .95em ui-monospace,monospace;border-radius:.4rem;padding:0 .5rem;letter-spacing:.15em}
+form{display:flex;gap:.5rem;margin:1rem 0 .5rem}
+input{flex:1;min-width:0;background:var(--carte);border:1px solid var(--trait);border-radius:.6rem;padding:.65rem .8rem}
+button{border:0;border-radius:.6rem;padding:.65rem 1.1rem;background:var(--encre);color:var(--carte);font-weight:600;cursor:pointer}
+button.alt{background:transparent;color:var(--encre);border:1px solid var(--trait)}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#resultat{margin-top:1rem;padding:1rem 1.25rem;border-left:5px solid var(--ok);background:var(--carte);border-radius:.6rem}
+#resultat.ko{border-color:var(--ko)}
+#resultat p{margin:0 0 .6rem}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Énigme du jour</h1>
+    <div class="score"><span id="pts">0</span> pts · série <span id="serie">0</span></div>
+  </header>
+  <select id="domaine" aria-label="Domaine"></select>
+  <section class="bulle" id="msg" aria-live="polite">Chargement…</section>
+  <p><button class="alt" id="btnIndice" type="button">Un indice (−5 pts)</button> <span id="indice" hidden></span></p>
+  <form id="f">
+    <input id="rep" placeholder="Ta réponse…" autocomplete="off" required>
+    <button id="envoyer">Valider</button>
+  </form>
+  <section id="resultat" hidden></section>
+  <p><button class="alt" id="suivante" type="button" hidden>Énigme suivante</button></p>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let cur = null, hint = false;
+let etat = {pts: 0, serie: 0};
+try { etat = JSON.parse(localStorage.getItem("edj")) || etat; } catch {}
+function save() {
+  try { localStorage.setItem("edj", JSON.stringify(etat)); } catch {}
+  $("#pts").textContent = etat.pts; $("#serie").textContent = etat.serie;
+}
+async function nouvelle() {
+  $("#resultat").hidden = true; $("#suivante").hidden = true; $("#indice").hidden = true;
+  $("#rep").value = ""; hint = false; cur = null; $("#envoyer").disabled = true;
+  $("#msg").textContent = "Je prépare ton énigme…";
+  try {
+    const r = await fetch("/api/enigme?domaine=" + encodeURIComponent($("#domaine").value));
+    if (!r.ok) throw new Error((await r.json()).detail);
+    cur = await r.json();
+    const m = $("#msg"), a = document.createElement("p"), e = document.createElement("p");
+    const [av, ap] = cur.enigme.split("<<???>>");
+    const trou = Object.assign(document.createElement("span"), {className: "trou", textContent: "???"});
+    a.textContent = cur.accroche; e.append(av, trou, ap || "");
+    m.replaceChildren(a, e); $("#envoyer").disabled = false;
+  } catch (err) { $("#msg").textContent = "Impossible de générer une énigme : " + err.message; }
+}
+$("#btnIndice").onclick = () => { if (!cur) return; hint = true; $("#indice").textContent = cur.indice; $("#indice").hidden = false; };
+$("#suivante").onclick = nouvelle;
+$("#domaine").onchange = nouvelle;
+$("#f").addEventListener("submit", async ev => {
+  ev.preventDefault(); if (!cur) return;
+  $("#envoyer").disabled = true;
+  try {
+    const r = await fetch("/api/repondre", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({id: cur.id, reponse: $("#rep").value, indice_utilise: hint})});
+    const d = await r.json();
+    etat.pts += d.points; etat.serie = d.correct ? etat.serie + 1 : 0; save();
+    const box = $("#resultat"), t = document.createElement("p"), b = document.createElement("strong");
+    const e = document.createElement("p"), s = document.createElement("a");
+    b.textContent = d.solution; t.append(d.correct ? `Bravo ! +${d.points} pts. ` : "Pas tout à fait. ", "La réponse : ", b);
+    e.textContent = d.explication;
+    Object.assign(s, {href: d.source.url, target: "_blank", rel: "noopener", textContent: "Source : " + d.source.titre + " (Wikipédia)"});
+    box.className = d.correct ? "" : "ko"; box.replaceChildren(t, e, s); box.hidden = false;
+    $("#suivante").hidden = false;
+  } catch (err) { $("#envoyer").disabled = false; }
+});
+save();
+fetch("/api/domaines").then(r => r.json()).then(l => {
+  l.forEach(x => $("#domaine").append(Object.assign(document.createElement("option"), {textContent: x})));
+  nouvelle();
+});
+</script>
+</body>
+</html>
